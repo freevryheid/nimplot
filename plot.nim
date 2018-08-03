@@ -11,19 +11,19 @@ const
 type
   CColor = tuple
     r,g,b: cdouble
-  ColSeq = seq[CColor]
+  #ColSeq = seq[CColor]
   Size = tuple
     w, h: cint
   #Legend = object
   #  text: Font
   LineType = enum
     None, Solid #,Gradient
-  Line = object
+  Line = ref object
     ltype: LineType
     color: CColor
     thick: float
-  Marker = object
-  DataSet* = object
+  #Marker = object
+  DataSet* = ref object
     #legend*: Legend
     x*: seq[float]
     y*: seq[float]
@@ -46,11 +46,9 @@ type
     ctype: ChartType
     size*: Size  # chart size
     series*: DataSets
-    colSeq: ColSeq
+    #colSeq: ColSeq
     drawArea*: float # as fraction of size
   Scatter* = object of Chart
-  Extremes = object
-    xmin, xmax, ymin, ymax: cdouble
 
 proc ccolor(c: Color): CColor =
   var x = c.extractRGB()
@@ -113,30 +111,33 @@ proc extrema(series: var DataSets) =
         s.ymax = tmax
 
 proc addlines(series: var DataSets) =
-  for s in series:
-    if s.line == nil:
-      s.line.thick = 0.5
-      s.line.color = ccolor(colBlack)
+  for i, s in series.mpairs:
+    if isNil(s.line):
       s.line.ltype = Solid
+      s.line.thick = 0.5
+      s.line.color = colortable[i]  # TODO
+    else:
 
-proc examine(chart: Chart) =
+    #if s.line.color == nil: s.line.color = colortable[i]
+    #if s.line.ltype == nil: s.line.ltype = Solid
+
+proc examine(chart: var Chart) =
   if len(chart.series) > 0:
     chart.series.extrema()
     chart.series.addlines()
 
-proc plot*(chart: Chart): ptr cairo_t =
+proc plot*(chart: var Chart): ptr cairo_t =
   chart.examine()
   let sf = image_surface_create(FORMAT_ARGB32, chart.size.w, chart.size.h)
   defer: surface_destroy(sf)
   result = create(sf)
   # lines
   for s in chart.series:
-    result.set_source_rgb(rand(1.0), rand(1.0), rand(1.0))
-    result.set_line_width(0.5)
-
+    result.set_source_rgb(s.line.color.r, s.line.color.g, s.line.color.b)
+    result.set_line_width(s.line.thick)
     for i in 0..len(s.x)-2:
-      result.move_to(chart.size.w.float*(s.x[i]-ex.xmin)/(ex.xmax-ex.xmin),chart.size.h.float*(s.y[i]-ex.ymin)/(ex.ymax-ex.ymin))
-      result.line_to(chart.size.w.float*(s.x[i+1]-ex.xmin)/(ex.xmax-ex.xmin),chart.size.h.float*(s.y[i+1]-ex.ymin)/(ex.ymax-ex.ymin))
+      result.move_to(chart.size.w.float*(s.x[i]-s.xmin)/(s.xmax-s.xmin),chart.size.h.float*(s.y[i]-s.ymin)/(s.ymax-s.ymin))
+      result.line_to(chart.size.w.float*(s.x[i+1]-s.xmin)/(s.xmax-s.xmin),chart.size.h.float*(s.y[i+1]-s.ymin)/(s.ymax-s.ymin))
       result.stroke()
   # chart frame
   result.set_source_rgb(0, 0, 0)
