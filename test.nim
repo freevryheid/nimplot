@@ -1,29 +1,28 @@
 import
   random
+  , algorithm
+  , sequtils
   , plot
-
-proc genSeries(): Series =
-  result = @[]
-  for i in 0..3:
-    var
-      s: Serie
-      P: Points
-    s.legend = "S" & $i
-    P = @[]
-    for j in 0..10:
-      var p: Point
-      p.x = rand(100.0)
-      p.y = rand(100.0)
-      P.add(p)
-    s.data = P
-    result.add(s)
 
 proc main() =
   var
-    series = genSeries()
     scatter = newScatter()
+    ds1, ds2, ds3: DataSet
+    x, y1, y2, y3: seq[float]
 
-  scatter.series = series
+  x = toSeq(0..99).map(proc(z: int): float = float(z))
+  ds1.x = x
+  ds2.x = x
+  ds3.x = x
+  y1 = x.map(proc(z: float): float = z*rand(100.0))
+  y2 = x.map(proc(z: float): float = z*rand(100.0))
+  y3 = x.map(proc(z: float): float = z*rand(100.0))
+  ds1.y = y1
+  ds2.y = y2
+  ds3.y = y3
+  scatter.series.add(ds1)
+  scatter.series.add(ds2)
+  scatter.series.add(ds3)
   scatter.plot().writePNG("test.png")
 
 when isMainModule:
