@@ -6,19 +6,33 @@ import
 type
   CColor = tuple
     r,g,b: cdouble
+
+proc ccolor(c: Color): CColor =
+  var x = c.extractRGB()
+  result.r = cdouble(x.r/255)
+  result.g = cdouble(x.g/255)
+  result.b = cdouble(x.b/255)
+
+type
   ColorTable = array[6,CColor]
   Size = tuple
     w, h: cint
   Font = object
+    name: string
+    slant: font_slant_t    # TODO: change this
+    weight: font_weight_t  # TODO: change this
+    size: float
+    fg: CColor
+    #bg: #TODO
   Loc = enum  # legend location - TODO allow x,y point
-    north, south, east, west
+    NORTH, SOUTH, EAST, WEST
   Legend = object
   #  text: string
   #  font: Font
   #  show: bool
   #  loc: Loc
   LineType* = enum
-    None, Solid #,Gradient
+    NONE, SOLID #,Gradient
   Line* = object
     ltype*: LineType
     color*: CColor
@@ -47,37 +61,36 @@ type
   ChartType = enum
     scatter
   Title = object
+    font: Font
     text: string
-    color: CColor
-    h: float  # height
+    loc: Loc  # location
   Chart = object of RootObj
     ctype: ChartType
     size: Size  # chart size
     nsets: int  # number of datasets
     series*: DataSets
     colorTable: ColorTable
+    gap: int  # between stuff
     frame: Line  # chart frame
     title: Title
   Scatter* = object of Chart
-
-proc ccolor(c: Color): CColor =
-  var x = c.extractRGB()
-  result.r = cdouble(x.r/255)
-  result.g = cdouble(x.g/255)
-  result.b = cdouble(x.b/255)
 
 const
   BLACK = ccolor(colBlack)
   CHART_WIDTH = 600
   CHART_HEIGHT = 400
-  CHART_GAP = 10
-  TITLE_HEIGHT = 100
-  TITLE_COLOR = BLACK
-  TITLE_LOC = north
-  FRAME_LTYPE = Solid
+  CHART_GAP = 10  # Applied through between blocks
+  TITLE_FONT_NAME = "serif"
+  TITLE_FONT_SLANT = FONT_SLANT_NORMAL
+  TITLE_FONT_WEIGHT = FONT_WEIGHT_BOLD
+  TITLE_FONT_SIZE = 12
+  TITLE_FONT_FG = BLACK  # foreground color
+  TITLE_LOC = NORTH
+  TITLE_TEXT = ""
+  FRAME_LTYPE = SOLID
   FRAME_THICK = 5
   FRAME_COLOR = BLACK
-  LINE_LTYPE = Solid
+  LINE_LTYPE = SOLID
   LINE_THICK = 1
   COLORTABLE01 = [
     ccolor(colRed),
@@ -101,10 +114,12 @@ proc newDataSet*(chart: var Chart): DataSet =
 proc newScatter*(): Scatter =
   # chart options
   result.ctype = scatter
-  var size:Size
+  var size: Size
+  var titleFont: Font
   size.w = CHART_WIDTH
   size.h = CHART_HEIGHT
   result.size = size
+  result.gap = CHART_GAP
   result.series = @[]
   result.colorTable = COLORTABLE01
   # chart frame
@@ -112,9 +127,15 @@ proc newScatter*(): Scatter =
   result.frame.thick = FRAME_THICK
   result.frame.color = FRAME_COLOR
   # chart title
-  result.title.h = TITLE_HEIGHT
-  result.title.color = TITLE_COLOR
-  # chart
+  titleFont.fg = TITLE_FONT_FG
+  titleFont.name = TITLE_FONT_NAME
+  titleFont.size = TITLE_FONT_SIZE
+  titleFont.slant = TITLE_FONT_SLANT
+  titleFont.weight = TITLE_FONT_WEIGHT
+  result.title.font = titleFont
+  result.title.loc = TITLE_LOC
+  result.title.text = TITLE_TEXT
+
 
 # TODO: Update to check secondary axis as well
 proc extrema(series: var DataSets) =
@@ -140,6 +161,8 @@ proc extrema(series: var DataSets) =
         s.ymax = tmax
 
 proc plot*(chart: var Chart): ptr cairo_t =
+  var te: ptr text_extents_t
+  var xcoord, ycoord: int
   let sf = image_surface_create(FORMAT_ARGB32, chart.size.w, chart.size.h)
   defer: surface_destroy(sf)
   result = create(sf)
@@ -150,9 +173,20 @@ proc plot*(chart: var Chart): ptr cairo_t =
     result.rectangle(0, 0, chart.size.w.float, chart.size.h.float)
     result.stroke()
   # chart title
-
-
-
+  if len(chart.title.text) > 0:
+    result.set_source_rgb(chart.title.font.fg.r, chart.title.font.fg.g, chart.title.font.fg.b)
+    result.select_font_face(chart.title.font.name, chart.title.font.slant, chart.title.font.weight)
+    result.set_font_size(chart.title.font.size)
+    result.text_extents(chart.title.text.cstring, te)
+    xcoord = 0
+    case chart.title.loc:
+      of "north":
+        ycoord = chart.frame.thick + chart.gap + chart.title.font.size
+      of "south":
+        ycoord = chart.size.h - chart.frame.thick - chart.gap
+      else: discard
+    result.move_to(xcoord, ycoord)
+    result.show_text(chart.title.text.cstring)
   # lines
   extrema(chart.series)
   for s in chart.series:
