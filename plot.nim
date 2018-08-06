@@ -10,17 +10,24 @@ type
   Size = tuple
     w, h: cint
   Font = object
+  Loc = enum  # legend location - TODO allow x,y point
+    north, south, east, west
   Legend = object
   #  text: string
   #  font: Font
   #  show: bool
+  #  loc: Loc
   LineType* = enum
     None, Solid #,Gradient
   Line* = object
     ltype*: LineType
     color*: CColor
     thick*: float
-  Marker = object
+    show*: bool
+  Marker* = object
+#    mtype*: MarkerType
+#    color*: CColor
+#    size*: float
   DataSet* = object
     chart: Chart
     legend*: Legend
@@ -30,15 +37,12 @@ type
     v*: seq[float]
     xmin, xmax, ymin, ymax: float  # extrema 1
     umin, umax, vmin, vmax: float  # extrema 2
-    xAxis*: Axis
-    yAxis*: Axis
-    uAxis*: Axis
-    vAxis*: Axis
+#    xAxis*: Axis
+#    yAxis*: Axis
+#    uAxis*: Axis
+#    vAxis*: Axis
     line*: Line
-    marker*: Marker
-    #markerType: MarkerType
-    #markerColor*: CColor
-    #markerSize*: float
+#    marker*: Marker
   DataSets = seq[DataSet]
   ChartType = enum
     scatter
@@ -52,7 +56,7 @@ type
     nsets: int  # number of datasets
     series*: DataSets
     colorTable: ColorTable
-    frame: Line
+    frame: Line  # chart frame
     title: Title
   Scatter* = object of Chart
 
@@ -66,8 +70,10 @@ const
   BLACK = ccolor(colBlack)
   CHART_WIDTH = 600
   CHART_HEIGHT = 400
+  CHART_GAP = 10
   TITLE_HEIGHT = 100
   TITLE_COLOR = BLACK
+  TITLE_LOC = north
   FRAME_LTYPE = Solid
   FRAME_THICK = 5
   FRAME_COLOR = BLACK
@@ -134,11 +140,21 @@ proc extrema(series: var DataSets) =
         s.ymax = tmax
 
 proc plot*(chart: var Chart): ptr cairo_t =
-  extrema(chart.series)
   let sf = image_surface_create(FORMAT_ARGB32, chart.size.w, chart.size.h)
   defer: surface_destroy(sf)
   result = create(sf)
+  # chart frame
+  if chart.frame.ltype != None:
+    result.set_source_rgb(chart.frame.color.r, chart.frame.color.g, chart.frame.color.b)
+    result.set_line_width(chart.frame.thick)
+    result.rectangle(0, 0, chart.size.w.float, chart.size.h.float)
+    result.stroke()
+  # chart title
+
+
+
   # lines
+  extrema(chart.series)
   for s in chart.series:
     if s.line.ltype == None:
       continue
@@ -149,11 +165,22 @@ proc plot*(chart: var Chart): ptr cairo_t =
       result.move_to(chart.size.w.float*(s.x[i]-s.xmin)/(s.xmax-s.xmin), chart.size.h.float - chart.title.h - chart.size.h.float*(s.y[i]-s.ymin)/(s.ymax-s.ymin))
       result.line_to(chart.size.w.float*(s.x[i+1]-s.xmin)/(s.xmax-s.xmin), chart.size.h.float - chart.title.h - chart.size.h.float*(s.y[i+1]-s.ymin)/(s.ymax-s.ymin))
       result.stroke()
-  # chart frame
-  result.set_source_rgb(chart.frame.color.r, chart.frame.color.g, chart.frame.color.b)
-  result.set_line_width(chart.frame.thick)
-  result.rectangle(0, 0, chart.size.w.float, chart.size.h.float)
-  result.stroke()
 
 proc writePNG*(cr: ptr cairo_t; png:string) =
   discard surface_write_to_png(get_target(cr), png)
+
+
+proc main() =
+  var
+    scatter = newScatter()
+    ds = scatter.newDataSet()
+    x = @[0.0, 0.1, 0.2, 0.3, 0.4, 0.5]
+    y = @[1.0, 2.1, 3.2, 4.3, 5.4, 6.5]
+
+  ds.x = x
+  ds.y = y
+  scatter.series.add(ds)
+  scatter.plot().writePNG("test1.png")
+
+when isMainModule:
+  main()
