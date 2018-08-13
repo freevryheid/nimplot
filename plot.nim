@@ -37,7 +37,7 @@ type
     ltype*: LineType
     color*: CColor
     thick*: float
-    show*: bool
+    #show*: bool
   Marker* = object
 #    mtype*: MarkerType
 #    color*: CColor
@@ -65,6 +65,8 @@ type
     text: string
     loc: Loc  # location
     size: Size  # w, h
+    frame: Line  # chart title frame
+    gap: float
   Chart = object of RootObj
     ctype: ChartType
     size: Size  # chart size
@@ -88,9 +90,13 @@ const
   TITLE_FONT_FG = BLACK  # foreground color
   TITLE_LOC = NORTH
   TITLE_TEXT = ""
-  CHART_FRAME_LTYPE = SOLID
+  CHART_TITLE_GAP = 5.0  # Added this to allow border around title
+  CHART_FRAME_LTYPE = NONE
   CHART_FRAME_THICK = 5.0
   CHART_FRAME_COLOR = BLACK
+  CHART_TITLE_FRAME_LTYPE = SOLID
+  CHART_TITLE_FRAME_THICK = 1.0
+  CHART_TITLE_FRAME_COLOR = BLACK
   LINE_LTYPE = SOLID
   LINE_THICK = 1.0
   COLORTABLE01 = [
@@ -136,6 +142,10 @@ proc newScatter*(): ScatterChart =
   result.title.font = titleFont
   result.title.loc = TITLE_LOC
   result.title.text = TITLE_TEXT
+  result.title.frame.ltype = CHART_TITLE_FRAME_LTYPE
+  result.title.frame.thick = CHART_TITLE_FRAME_THICK
+  result.title.frame.color = CHART_TITLE_FRAME_COLOR
+  result.title.gap = CHART_TITLE_GAP
 
 # TODO: Update to check secondary axis as well
 proc extrema(series: var DataSets) =
@@ -186,12 +196,21 @@ proc plot*(chart: var Chart): ptr cairo_t =
     result.text_extents(chart.title.text.cstring, te.addr)
     chart.title.size.h = te.height
     chart.title.size.w = te.width
-    xcoord = (chart.size.w - chart.title.size.w) / 2.0
+    if chart.title.frame.ltype == None:
+      xcoord = (chart.size.w - chart.title.size.w) / 2.0
+    else:
+      xcoord = (chart.size.w - chart.title.size.w - 2.0*chart.title.frame.thick - 2.0*chart.title.gap) / 2.0  #chkme
     case chart.title.loc:
       of NORTH:
-        ycoord = chart.frame.thick + chart.gap + chart.title.size.h
+        if chart.title.frame.ltype == None:
+          ycoord = chart.frame.thick + chart.gap + chart.title.size.h
+        else:
+          ycoord = chart.frame.thick + chart.gap + chart.title.size.h + chart.title.gap + chart.title.frame.thick
       of SOUTH:
-        ycoord = chart.size.h - chart.frame.thick - chart.gap
+        if chart.title.frame.ltype == None:
+          ycoord = chart.size.h - chart.frame.thick - chart.gap
+        else:
+          ycoord = chart.size.h - chart.frame.thick - chart.gap - chart.title.gap - chart.title.frame.thick
       else: discard
     result.move_to(xcoord, ycoord)
     result.show_text(chart.title.text.cstring)
