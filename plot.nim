@@ -177,7 +177,7 @@ proc plot*(chart: var Chart): ptr cairo_t =
   #cfo = font_options_create()
   #echo repr cfo
   #cfo.font_options_set_antialias(ANTIALIAS_BEST)
-  var xcoord, ycoord: float
+  var xcoord, ycoord: float # for title text
   let sf = image_surface_create(FORMAT_ARGB32, chart.size.w.cint, chart.size.h.cint)
   defer: surface_destroy(sf)
   result = create(sf)
@@ -200,11 +200,11 @@ proc plot*(chart: var Chart): ptr cairo_t =
     if chart.title.frame.ltype == NONE:
       xcoord = (chart.size.w - chart.title.size.w) / 2.0
       tfx0 = chart.gap
-      tfx1 = chart.size.w - chart.gap
+      tfx1 = chart.size.w - tfx0 - chart.gap
     else:
       xcoord = (chart.size.w - chart.title.size.w - 2.0*chart.title.frame.thick - 2.0*chart.title.gap) / 2.0  #chkme
       tfx0 = chart.frame.thick + chart.gap
-      tfx1 = chart.size.w - chart.frame.thick - chart.gap
+      tfx1 = chart.size.w - tfx0 - chart.frame.thick - chart.gap
     case chart.title.loc:
       of NORTH:
         if chart.title.frame.ltype == NONE:
@@ -212,7 +212,7 @@ proc plot*(chart: var Chart): ptr cairo_t =
         else:
           ycoord = chart.frame.thick + chart.gap + chart.title.size.h + chart.title.gap + chart.title.frame.thick
           tfy0 = chart.frame.thick + chart.gap
-          tfy1 = tfy0 + chart.title.size.h + chart.title.gap + 2.0*chart.title.frame.thick
+          tfy1 = ycoord + chart.title.frame.thick
       of SOUTH:
         if chart.title.frame.ltype == NONE:
           ycoord = chart.size.h - chart.frame.thick - chart.gap
