@@ -94,7 +94,7 @@ const
   CHART_FRAME_LTYPE = NONE
   CHART_FRAME_THICK = 5.0
   CHART_FRAME_COLOR = BLACK
-  CHART_TITLE_FRAME_LTYPE = SOLID
+  CHART_TITLE_FRAME_LTYPE = NONE
   CHART_TITLE_FRAME_THICK = 1.0
   CHART_TITLE_FRAME_COLOR = BLACK
   LINE_LTYPE = SOLID
@@ -183,37 +183,51 @@ proc plot*(chart: var Chart): ptr cairo_t =
   result = create(sf)
   #result.set_font_options(cfo)
   # chart frame
-  if chart.frame.ltype != None:
+  if chart.frame.ltype != NONE:
     result.set_source_rgb(chart.frame.color.r, chart.frame.color.g, chart.frame.color.b)
     result.set_line_width(chart.frame.thick)
     result.rectangle(0, 0, chart.size.w.float, chart.size.h.float)
     result.stroke()
   # chart title
   if len(chart.title.text) > 0:
+    var tfx0, tfx1, tfy0, tfy1: float  # title frame x, y coords
     result.set_source_rgb(chart.title.font.fg.r, chart.title.font.fg.g, chart.title.font.fg.b)
     result.select_font_face(chart.title.font.name, chart.title.font.slant, chart.title.font.weight)
     result.set_font_size(chart.title.font.size)
     result.text_extents(chart.title.text.cstring, te.addr)
     chart.title.size.h = te.height
     chart.title.size.w = te.width
-    if chart.title.frame.ltype == None:
+    if chart.title.frame.ltype == NONE:
       xcoord = (chart.size.w - chart.title.size.w) / 2.0
+      tfx0 = chart.gap
+      tfx1 = chart.size.w - chart.gap
     else:
       xcoord = (chart.size.w - chart.title.size.w - 2.0*chart.title.frame.thick - 2.0*chart.title.gap) / 2.0  #chkme
+      tfx0 = chart.frame.thick + chart.gap
+      tfx1 = chart.size.w - chart.frame.thick - chart.gap
     case chart.title.loc:
       of NORTH:
-        if chart.title.frame.ltype == None:
+        if chart.title.frame.ltype == NONE:
           ycoord = chart.frame.thick + chart.gap + chart.title.size.h
         else:
           ycoord = chart.frame.thick + chart.gap + chart.title.size.h + chart.title.gap + chart.title.frame.thick
+          tfy0 = chart.frame.thick + chart.gap
+          tfy1 = tfy0 + chart.title.size.h + chart.title.gap + 2.0*chart.title.frame.thick
       of SOUTH:
-        if chart.title.frame.ltype == None:
+        if chart.title.frame.ltype == NONE:
           ycoord = chart.size.h - chart.frame.thick - chart.gap
         else:
           ycoord = chart.size.h - chart.frame.thick - chart.gap - chart.title.gap - chart.title.frame.thick
+          tfy0 = chart.size.h - chart.frame.thick - chart.gap
+          tfy1 = tfy0 - chart.title.size.h - chart.title.gap - 2.0*chart.title.frame.thick
       else: discard
     result.move_to(xcoord, ycoord)
     result.show_text(chart.title.text.cstring)
+    if chart.title.frame.ltype != NONE:
+      result.set_source_rgb(chart.title.frame.color.r, chart.title.frame.color.g, chart.title.frame.color.b)
+      result.set_line_width(chart.title.frame.thick)
+      result.rectangle(tfx0, tfy0, tfx1, tfy1)
+      result.stroke()
   #result.set_font_options(cfo)
   # lines
   #extrema(chart.series)
@@ -241,8 +255,10 @@ proc main() =
   ds.x = x
   ds.y = y
   scatter.series.add(ds)
+  scatter.frame.ltype = SOLID
   scatter.title.text = "CHART TITLE"
-  scatter.plot().writePNG("test1.png")
+  scatter.title.frame.ltype = SOLID
+  scatter.plot().writePNG("test.png")
 
 when isMainModule:
   main()
